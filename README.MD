@@ -1,6 +1,3 @@
-# Heading
+# 'Ray tracing in a weekend'
 
-'Ray tracing in a weekend'
-
-### Heading
-Implemented in Python (so slow)
+### Implemented in Python (so slow)
