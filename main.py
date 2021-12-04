@@ -1,7 +1,9 @@
 import numpy as np
 import io
+import os
 from tqdm import tqdm
-from multiprocessing import Process, Value
+from multiprocessing import Process, Value, Manager
+import time
 
 from color import Color, write_color
 from vec3 import Vec3, Point3, unit_vector, dot, random_in_unit_sphere, random_unit_vector, random_in_hemisphere
@@ -20,6 +22,12 @@ class PathTracer:
 		self.image_height = int(image_width / aspect_ratio) 
 		self.samples_per_pix = samples_per_pix
 		self.max_depth = max_depth
+
+		self.running_processes = Value('I', 0)
+		self.pixel_colors = Manager().dict()
+		for i in range(self.image_height):
+			for j in range(self.image_width):
+				self.pixel_colors[(i, j)] = 0
 		
 	def ray_color(self, ray, depth):
 		if depth <= 0:
@@ -67,25 +75,65 @@ class PathTracer:
 
 	def setup_camera(self):
 		self.cam = Camera(Point3([-2, 2, 1]), Point3([0, 0, -1]), Vec3([0, 1, 0]), 20.0, self.aspect_ratio)
+	
+	def color_pixel(self, i, j):
+		pix_color = Color([0, 0, 0])
+		for s in range(self.samples_per_pix):
+			u = (i + np.random.rand())/(self.image_width - 1)
+			v = (j + np.random.rand())/(self.image_height - 1)
+			r = self.cam.get_ray(u, v)
+			pix_color += self.ray_color(r, self.max_depth) 
+		self.pixel_colors[(i, j)] = pix_color
+		return 
+	
+	def create_processes(self):
+		self.processes = []
+		for j in reversed(range(self.image_height)):
+			for i in range(self.image_width):
+				self.processes.append(Process(target=self.color_pixel, args=(i, j)))
+	
+	def run_processes(self):
+		for p in self.processes:
+#			while self.running_processes.value >= os.cpu_count():
+#				time.sleep(0.01)
+			p.start()
+#			time.sleep(0.1)
+
+		for p in self.processes():
+			p.join()
+
+	def run_one_process(self, i, j):
+		
+		with self.running_processes.get_lock():
+			self.running_processes.value += 1
+
+#		print(self.running_processes.value)
+		self.color_pixel(i, j)
+
+		with self.running_processes.get_lock():
+			self.running_processes.value -= 1
+		
+	def save_image(self):
+
+		for j in reversed(range(self.image_height)):
+			for i in range(self.image_width):
+				pix_color = self.pixel_colors[(i, j)]
+				write_color(self.stream, pix_color, self.samples_per_pix)
+
+#		with open('image.ppm', 'w') as f:
+#			f.write(self.stream.getvalue())
+
+	def print_progress(self):
+		pass
 
 	def run(self):
 
 		self.create_world()
 		self.setup_camera()
 		self.setup_stream()
-
-		for j in tqdm(reversed(range(self.image_height))):
-			for i in range(self.image_width):
-				pix_color = Color([0, 0, 0])
-				for s in range(self.samples_per_pix):
-					u = (i + np.random.rand())/(self.image_width - 1)
-					v = (j + np.random.rand())/(self.image_height - 1)
-					r = self.cam.get_ray(u, v)
-					pix_color += self.ray_color(r, self.max_depth) 
-				write_color(self.stream, pix_color, self.samples_per_pix)
-
-		with open('image.ppm', 'w') as f:
-			f.write(self.stream.getvalue())
+		self.create_processes()
+		self.run_processes()
+		self.save_image()
 
 if __name__ == '__main__':
 	pt = PathTracer()
