@@ -16,6 +16,14 @@ def random_in_unit_sphere():
 def random_unit_vector():
     return unit_vector(random_in_unit_sphere())
 
+def random_in_unit_disk():
+    while True:
+        vec = Vec3([rand(-1, 1), rand(-1, 1), 0])
+        if vec.length_squared() > 1:
+            continue
+        return vec
+
+
 def reflect(v, n):
     return v - 2*dot(v, n)*n
 

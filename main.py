@@ -75,7 +75,13 @@ class PathTracer:
         self.stream.write("255\n")
 
     def setup_camera(self):
-        self.cam = Camera(Point3([-2, 2, 1]), Point3([0, 0, -1]), Vec3([0, 1, 0]), 20.0, self.aspect_ratio)
+        lookfrom = Point3([-1, 1, 1]) 
+        lookat = Point3([0, 0, -1]) 
+        vup = Vec3([0, 1, 0]) 
+        vfov = 50.0
+        aperture = 2.0
+        dist_to_focus = (lookfrom - lookat).length()
+        self.cam = Camera(lookfrom, lookat, vup, vfov, self.aspect_ratio, aperture, dist_to_focus)
     
     def color_row(self, j):
         np.random.seed(j)
@@ -137,11 +143,12 @@ class PathTracer:
         self.setup_camera()
         self.setup_stream()
         self.create_processes()
+        print('Rendering ...')
         self.run_processes()
         self.save_image()
 
 if __name__ == '__main__':
-    pt = PathTracer(samples_per_pix=5, max_depth=50)
+    pt = PathTracer(image_width=700, samples_per_pix=2, max_depth=50)
     pt.run()
 
 
