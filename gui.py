@@ -55,7 +55,7 @@ class PathTracerWindow(QMainWindow):
             ('image_height', {'val': 200, 'in_mask': '900', 'width': 40, 'slot': self.image_height_changed}),
             ('samples_per_pix', {'val': 2, 'in_mask': '90', 'width': 30, 'slot': self.samples_per_pix_changed}),
             ('max_depth', {'val': 2, 'in_mask': '90', 'width': 30, 'slot': self.max_depth_changed}),
-            ('workers', {'val': 2, 'in_mask': '90', 'width': 30, 'slot': self.workers_changed}),
+            ('workers', {'val': 4, 'in_mask': '90', 'width': 30, 'slot': self.workers_changed}),
         ]
         for attr_name, cfg in line_edit_attrs:
             setattr(self, attr_name, cfg['val'])
@@ -85,12 +85,14 @@ class PathTracerWindow(QMainWindow):
         self.input_widget.setLayout(self.input_layout)
 
         self.display_widget = QLabel()
-        self.display_widget.setPixmap(QPixmap(self.image_width, self.image_height))
+        pixmap = QPixmap(self.image_width, self.image_height)
+        pixmap.fill(Qt.white)
+        self.display_widget.setPixmap(pixmap)
         self.painter = QPainter(self.display_widget.pixmap())
 
         self.main_layout = QHBoxLayout()
-        self.main_layout.addWidget(self.input_widget)
-        self.main_layout.addWidget(self.display_widget)
+        self.main_layout.addWidget(self.input_widget, Qt.AlignCenter)
+        self.main_layout.addWidget(self.display_widget, Qt.AlignCenter)
 
         self.main_widget = QWidget()
         self.main_widget.setLayout(self.main_layout)
@@ -115,7 +117,9 @@ class PathTracerWindow(QMainWindow):
         if self.image_width != n:
             self.image_width_box.setText(str(self.image_width))
         self.painter.end()
-        self.display_widget.setPixmap(QPixmap(self.image_width, self.image_height))
+        pixmap = self.display_widget.pixmap()
+        pixmap.fill(Qt.white)
+        self.display_widget.setPixmap(pixmap.scaled(QSize(self.image_width, self.image_height)))
         self.painter = QPainter(self.display_widget.pixmap())
     
     def image_height_changed(self, text):
@@ -124,7 +128,9 @@ class PathTracerWindow(QMainWindow):
         if self.image_height != n:
             self.image_height_box.setText(str(self.image_height))
         self.painter.end()
-        self.display_widget.setPixmap(QPixmap(self.image_width, self.image_height))
+        pixmap = self.display_widget.pixmap()
+        pixmap.fill(Qt.white)
+        self.display_widget.setPixmap(pixmap.scaled(QSize(self.image_width, self.image_height)))
         self.painter = QPainter(self.display_widget.pixmap())
 
     def samples_per_pix_changed(self, text):
