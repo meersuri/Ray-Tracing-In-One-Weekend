@@ -89,13 +89,14 @@ class PathTracerWindow(QMainWindow):
 
         self.render_process = None
         self.pixel_count = 0
+        self.row, self.col = None, None
+        self.r, self.g, self.b = None, None, None
 
     def render_clicked(self, is_checked):
         if not is_checked:
             self.render_process.kill()
             self.render_button.setText('Render')
             return
-        print(self.pixel_count)
         self.render()
         self.render_button.setText('Stop')
     
@@ -165,15 +166,37 @@ class PathTracerWindow(QMainWindow):
         self.render_process.start()
 
     def set_pixel(self):
-        data = bytes(self.render_process.readLine()).decode()
-        if len(data.strip().split(' ')) != 5:
-            return
-
-        row, col, r, g, b = [int(x) for x in data.split()]
-        self.painter.setPen(qRgb(r, g, b))
-        self.painter.drawPoint(row, col)
-        self.display_widget.update()
-        self.pixel_count += 1
+        data = bytes(self.render_process.readAllStandardOutput()).decode()
+        parts = data.split('\n')
+        for s in parts:
+            if not s or ':' not in s:
+                continue
+            s = s.strip('\r')
+            label, val = s.split(':')
+            val = int(val)
+            if label == 'x':
+                self.row = val
+            elif label == 'y':
+                self.col = val
+            elif label == 'r':
+                self.r = val
+            elif label == 'g':
+                self.g = val
+            elif label == 'b':
+                self.b = val
+            if all([
+                self.row is not None,
+                self.col is not None,
+                self.r is not None,
+                self.g is not None,
+                self.b is not None
+            ]):
+                self.painter.setPen(qRgb(self.r, self.g, self.b))
+                self.painter.drawPoint(self.row, self.col)
+                self.display_widget.update()
+                self.pixel_count += 1
+                self.row, self.col = None, None
+                self.r, self.g, self.b = None, None, None
 
     def render_worker(self):
         self.pt = PathTracer()

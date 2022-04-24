@@ -113,7 +113,11 @@ class PathTracer:
             self.task_queue.task_done()
             rgb_color = get_color(pix_color, self.samples_per_pix)
             with self.print_lock:
-                print(i, j, *rgb_color)
+                print(f'x:{i}')
+                print(f'y:{j}')
+                print(f'r:{rgb_color[0]}')
+                print(f'g:{rgb_color[1]}')
+                print(f'b:{rgb_color[2]}')
 
     def render(self):
         self.task_queue = JoinableQueue()
