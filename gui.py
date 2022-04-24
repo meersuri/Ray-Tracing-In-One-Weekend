@@ -50,41 +50,22 @@ class PathTracerWindow(QMainWindow):
         self.save_button = QPushButton('Save')
         self.save_button.setFixedWidth(100)
 
-        self.image_width = 200
-        self.image_width_box = QLineEdit()
-        self.image_width_box.setPlaceholderText(str(self.image_width))
-        self.image_width_box.setInputMask('900')
-        self.image_width_box.textChanged.connect(self.image_width_changed)
-        self.image_width_box.setFixedWidth(40)
+        line_edit_attrs = [
+            ('image_width', {'val': 200, 'in_mask': '900', 'width': 40, 'slot': self.image_width_changed}),
+            ('image_height', {'val': 200, 'in_mask': '900', 'width': 40, 'slot': self.image_height_changed}),
+            ('samples_per_pix', {'val': 2, 'in_mask': '90', 'width': 30, 'slot': self.samples_per_pix_changed}),
+            ('max_depth', {'val': 2, 'in_mask': '90', 'width': 30, 'slot': self.max_depth_changed}),
+            ('workers', {'val': 2, 'in_mask': '90', 'width': 30, 'slot': self.workers_changed}),
+        ]
+        for attr_name, cfg in line_edit_attrs:
+            setattr(self, attr_name, cfg['val'])
+            box_attr_name = attr_name + '_box'
+            setattr(self, box_attr_name, QLineEdit())
+            getattr(self, box_attr_name).setPlaceholderText(str(cfg['val']))
+            getattr(self, box_attr_name).setInputMask(cfg['in_mask'])
+            getattr(self, box_attr_name).setFixedWidth(cfg['width'])
+            getattr(self, box_attr_name).textChanged.connect(cfg['slot'])
 
-        self.image_height = 200
-        self.image_height_box = QLineEdit()
-        self.image_height_box.setPlaceholderText(str(self.image_height))
-        self.image_height_box.setInputMask('900')
-        self.image_height_box.textChanged.connect(self.image_height_changed)
-        self.image_height_box.setFixedWidth(40)
-
-        self.samples_per_pix = 2
-        self.samples_per_pix_box = QLineEdit()
-        self.samples_per_pix_box.setPlaceholderText(str(self.samples_per_pix))
-        self.samples_per_pix_box.setInputMask('90')
-        self.samples_per_pix_box.textChanged.connect(self.samples_per_pix_changed)
-        self.samples_per_pix_box.setFixedWidth(30)
-    
-        self.max_depth = 2
-        self.max_depth_box = QLineEdit()
-        self.max_depth_box.setPlaceholderText(str(self.max_depth))
-        self.max_depth_box.setInputMask('90')
-        self.max_depth_box.textChanged.connect(self.max_depth_changed)
-        self.max_depth_box.setFixedWidth(30)
-
-        self.workers = 4
-        self.workers_box = QLineEdit()
-        self.workers_box.setPlaceholderText(str(self.workers))
-        self.workers_box.setInputMask('90')
-        self.workers_box.textChanged.connect(self.workers_changed)
-        self.workers_box.setFixedWidth(30)
-    
         self.form_layout = QFormLayout()
         self.form_layout.addRow('Image width', self.image_width_box)
         self.form_layout.addRow('Image height', self.image_height_box)
@@ -179,7 +160,6 @@ class PathTracerWindow(QMainWindow):
             self.max_depth,
             self.workers
         ]
-#        self.render_process = Process(target=path_tracer_runner, kwargs=kwargs, daemon=False).start()
         self.render_process = QProcess()
         self.render_process.setProgram('python')
         self.render_process.setArguments([str(arg) for arg in args])
@@ -192,7 +172,6 @@ class PathTracerWindow(QMainWindow):
             return
 
         row, col, r, g, b = [int(x) for x in data.split()]
-#        self.image.setPixelColor(i, j, qRgb(r, g, b))
         self.painter.setPen(qRgb(r, g, b))
         self.painter.drawPoint(row, col)
         self.display_widget.update()
