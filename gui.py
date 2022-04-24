@@ -39,11 +39,11 @@ class PathTracerWindow(QMainWindow):
         self.save_button.setFixedWidth(100)
 
         line_edit_attrs = [
-            ('image_width', {'val': 100, 'in_mask': '900', 'width': 40, 'slot': self.image_width_changed}),
-            ('image_height', {'val': 100, 'in_mask': '900', 'width': 40, 'slot': self.image_height_changed}),
-            ('samples_per_pix', {'val': 2, 'in_mask': '90', 'width': 30, 'slot': self.samples_per_pix_changed}),
-            ('max_depth', {'val': 2, 'in_mask': '90', 'width': 30, 'slot': self.max_depth_changed}),
-            ('workers', {'val': 4, 'in_mask': '90', 'width': 30, 'slot': self.workers_changed}),
+            ('image_width', {'val': 100, 'in_mask': '900', 'width': 40, 'slot': self.image_width_changed, 'len': 3}),
+            ('image_height', {'val': 100, 'in_mask': '900', 'width': 40, 'slot': self.image_height_changed, 'len': 3}),
+            ('samples_per_pix', {'val': 2, 'in_mask': '90', 'width': 30, 'slot': self.samples_per_pix_changed, 'len': 2}),
+            ('max_depth', {'val': 2, 'in_mask': '90', 'width': 30, 'slot': self.max_depth_changed, 'len': 2}),
+            ('workers', {'val': 4, 'in_mask': '90', 'width': 30, 'slot': self.workers_changed, 'len': 2}),
         ]
         for attr_name, cfg in line_edit_attrs:
             setattr(self, attr_name, cfg['val'])
@@ -52,6 +52,7 @@ class PathTracerWindow(QMainWindow):
             getattr(self, box_attr_name).setPlaceholderText(str(cfg['val']))
             getattr(self, box_attr_name).setInputMask(cfg['in_mask'])
             getattr(self, box_attr_name).setFixedWidth(cfg['width'])
+            getattr(self, box_attr_name).setMaxLength(cfg['len'])
             getattr(self, box_attr_name).textChanged.connect(cfg['slot'])
 
         self.form_layout = QFormLayout()
@@ -134,13 +135,15 @@ class PathTracerWindow(QMainWindow):
 
     def max_depth_changed(self, text):
         n = int(text) if text else 1
-        self.max_depth = min(max(1, n), 20)
-        self.max_depth_box.setText(str(self.max_depth))
+        self.max_depth = min(max(1, n), 30)
+        if self.max_depth != n:
+            self.max_depth_box.setText(str(self.max_depth))
 
     def workers_changed(self, text):
         n = int(text) if text else 1
         self.workers = min(max(1, n), os.cpu_count())
-        self.workers_box.setText(str(self.workers))
+        if self.workers != n:
+            self.workers_box.setText(str(self.workers))
 
     def render(self):
         self.is_rendering = True
@@ -175,9 +178,9 @@ class PathTracerWindow(QMainWindow):
             label, val = s.split(':')
             val = int(val)
             if label == 'x':
-                self.row = val
+                self.row = self.image_width - 1 - val
             elif label == 'y':
-                self.col = val
+                self.col = self.image_height - 1 - val
             elif label == 'r':
                 self.r = val
             elif label == 'g':
