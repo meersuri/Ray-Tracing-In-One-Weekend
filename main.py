@@ -1,11 +1,14 @@
+import os
+import sys
 import numpy as np
 import io
-import os
 from tqdm import tqdm
-from multiprocessing import Process, Value, Manager
+from threading import Thread
+import queue
+from multiprocessing import Manager, Process, JoinableQueue, Lock
 import time
 
-from color import Color, write_color
+from color import Color, get_color, write_color
 from vec3 import Vec3, Point3, unit_vector, dot, random_in_unit_sphere, random_unit_vector, random_in_hemisphere
 from ray import Ray
 from sphere import Sphere
@@ -15,21 +18,18 @@ from camera import Camera
 from material import Lambertian, Metal, Dielectric
 
 class PathTracer:
-
-    def __init__(self, image_width=400, aspect_ratio=16.0/9.0, samples_per_pix=2, max_depth=10):
-        self.aspect_ratio = aspect_ratio
+    def __init__(self, image_width=400, image_height=400, samples_per_pix=2, max_depth=10, workers=1, *args, **kwargs):
         self.image_width = image_width
-        self.image_height = int(image_width / aspect_ratio) 
+        self.image_height = image_height
+        self.aspect_ratio = self.image_width/float(self.image_height)
         self.samples_per_pix = samples_per_pix
         self.max_depth = max_depth
+        self.worker_count = workers
+        self.print_lock = Lock()
+        for name, val in kwargs.items():
+            attr = getattr(name)
+            setattr(name, val)
 
-        self.running_processes = Value('I', 0)
-        self.completed_processes = Value('I', 0)
-        self.pixel_colors = Manager().dict()
-        for i in range(self.image_height):
-            for j in range(self.image_width):
-                self.pixel_colors[(i, j)] = 0
-        
     def ray_color(self, ray, depth):
         if depth <= 0:
             return Color([0, 0, 0])
@@ -83,47 +83,6 @@ class PathTracer:
         dist_to_focus = (lookfrom - lookat).length()
         self.cam = Camera(lookfrom, lookat, vup, vfov, self.aspect_ratio, aperture, dist_to_focus)
     
-    def color_row(self, j):
-        np.random.seed(j)
-        for i in range(self.image_width):
-            pix_color = Color([0, 0, 0])
-            for s in range(self.samples_per_pix):
-                u = (i + np.random.rand())/(self.image_width - 1)
-                v = (j + np.random.rand())/(self.image_height - 1)
-                r = self.cam.get_ray(u, v)
-                pix_color += self.ray_color(r, self.max_depth) 
-            self.pixel_colors[(i, j)] = pix_color
-        return 
-    
-    def create_processes(self):
-        self.processes = []
-        for j in reversed(range(self.image_height)):
-            self.processes.append(Process(target=self.run_one_process, args=(j, )))
-    
-    def run_processes(self):
-        for p in self.processes:
-            while self.running_processes.value >= os.cpu_count():
-                time.sleep(0.1)
-            p.start()
-            time.sleep(0.1)
-
-        for p in self.processes:
-            p.join()
-
-    def run_one_process(self, j):
-        
-        with self.running_processes.get_lock():
-            self.running_processes.value += 1
-
-        self.color_row(j)
-
-        with self.running_processes.get_lock():
-            self.running_processes.value -= 1
-
-        with self.completed_processes.get_lock():
-            self.completed_processes.value += 1
-            print(f'\x9B1K{self.completed_processes.value}/{len(self.processes)}', end='\r')
-        
     def save_image(self):
 
         for j in reversed(range(self.image_height)):
@@ -137,18 +96,49 @@ class PathTracer:
     def print_progress(self):
         pass
 
+    def worker(self):
+        while True:
+            try:
+                i, j = self.task_queue.get(0.5)
+            except queue.Empty:
+                return
+            np.random.seed(j*i + 2*i + j)
+            pix_color = Color([0, 0, 0])
+            for s in range(self.samples_per_pix):
+                u = (i + np.random.rand())/(self.image_width - 1)
+                v = (j + np.random.rand())/(self.image_height - 1)
+                r = self.cam.get_ray(u, v)
+                pix_color += self.ray_color(r, self.max_depth)
+            self.pixel_colors[(i, j)] = pix_color
+            self.task_queue.task_done()
+            rgb_color = get_color(pix_color, self.samples_per_pix)
+            with self.print_lock:
+                print(i, j, *rgb_color)
+
+    def render(self):
+        self.task_queue = JoinableQueue()
+        self.pixel_colors = Manager().dict()
+        for i in range(self.image_height):
+            for j in range(self.image_width):
+                self.pixel_colors[(i, j)] = 0
+                self.task_queue.put((j, i))
+        self.workers = [Process(target=(self.worker), daemon=True).start() for i in range(self.worker_count)]
+        self.task_queue.join()
+
     def run(self):
 
         self.create_world()
         self.setup_camera()
         self.setup_stream()
-        self.create_processes()
         print('Rendering ...')
-        self.run_processes()
+        self.render()
+        print('Done')
         self.save_image()
 
 if __name__ == '__main__':
-    pt = PathTracer(image_width=700, samples_per_pix=2, max_depth=50)
+    args = sys.argv
+    args = [int(arg) for arg in sys.argv[1:]]
+    pt = PathTracer(*args)
     pt.run()
 
 
